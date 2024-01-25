@@ -6,17 +6,21 @@ import os
 from sklearn.model_selection import train_test_split
 from sklearn.decomposition import PCA
 from sklearn.svm import SVC
-from sklearn.metrics import classification_report, accuracy_score, recall_score, f1_score
+from sklearn.metrics import classification_report, accuracy_score, recall_score, f1_score, roc_auc_score
+from sklearn.neighbors import KNeighborsClassifier
+from scipy.spatial.distance import mahalanobis
 
 class FaceRecognitionModel:
-    def __init__(self, classifier, data_path='att_faces', n_components=50):
+    def __init__(self, data_path='D:\\Images', n_components=50):
         self.data_path = data_path
         self.n_components = n_components
         self.images = []
         self.labels = []
         self.x_train, self.x_test, self.y_train, self.y_test = None, None, None, None
         self.pca = None
-        self.clf = classifier
+        self.clf = None
+        self.cov_matrix = None
+        self.inv_cov_matrix = None
 
     def load_data(self):
         for i in range(1, 41):
@@ -30,11 +34,11 @@ class FaceRecognitionModel:
         self.images = np.array(self.images)
         self.labels = np.array(self.labels)
 
-    def split_data(self):
+    def split_data(self, rand_state = 42):
         x_train, x_test, y_train, y_test = [], [], [], []
         for i in range(1, 41):
             indices = np.where(self.labels == i)[0]
-            train_indices, test_indices = train_test_split(indices, test_size=0.2, random_state=42)
+            train_indices, test_indices = train_test_split(indices, test_size=0.2, random_state= rand_state)
 
             x_train.extend(self.images[train_indices])
             y_train.extend(self.labels[train_indices])
@@ -44,6 +48,19 @@ class FaceRecognitionModel:
 
         self.x_train, self.y_train = np.array(x_train), np.array(y_train)
         self.x_test, self.y_test = np.array(x_test), np.array(y_test)
+    
+    def plot_elbow(self):
+        X_std = (self.x_train - np.mean(self.x_train, axis=0)) / np.std(self.x_train, axis=0)
+        pca = PCA()
+        pca.fit(X_std)
+        explained_variance_ratio = pca.explained_variance_ratio_
+        cumulative_variance_ratio = np.cumsum(explained_variance_ratio)
+
+        plt.plot(range(1, len(explained_variance_ratio) + 1), cumulative_variance_ratio, marker='o')
+        plt.title('Elbow Chart for PCA')
+        plt.xlabel('Number of Principal Components')
+        plt.ylabel('Cumulative Explained Variance Ratio')
+        plt.show()
 
     def perform_pca(self):
         print(f"Extracting the top {self.n_components} eigenfaces from {self.x_train.shape[0]} faces")
@@ -57,10 +74,37 @@ class FaceRecognitionModel:
         self.x_train = self.pca.transform(self.x_train)
         self.x_test = self.pca.transform(self.x_test)
         print("Done in %0.3fs" % (time() - t0))
+        
+    def mahalabonis(self,weight = 'uniform'):
+        print("Predicting the people names on the testing set")
+        t0 = time()
+        self.cov_matrix = np.cov(self.x_train, rowvar=False)
+        self.inv_cov_matrix = np.linalg.inv(self.cov_matrix)
+        distances = np.array([[mahalanobis(test_img, train_img, self.inv_cov_matrix)\
+                                      for train_img in self.x_train] for test_img in self.x_test])
+        if weight.lower() == 'uniform':
+            weight = 1.0
+        elif weight.lower() == 'distance':
+            weight = 1.0 / (distances + 1e-10)
+        distances = weight * distances
+        five_neighbors_dis = np.argsort(distances, axis=1)[:, :5]
+        pred = np.array([np.argmax(np.bincount(self.y_train[idx])) for idx in five_neighbors_dis])
+        print("Done in %0.3fs" % (time() - t0))
+        # Evaluate accuracy
+        print("\nClassification Report:")
+        print(classification_report(self.y_test, pred))
+        print('Accuracy:', accuracy_score(self.y_test,pred))
 
-    def train_classifier(self):
+    def uniform_weight(distance):
+        return 1.0
+
+    def distance_weight(distance):
+        return 1.0 / (distance + 1e-10)  # Adding a small epsilon to avoid division by zero
+  
+    def train_classifier(self,classifier):
         print("Fitting the classifier to the training set")
         t0 = time()
+        self.clf = classifier
         self.clf.fit(self.x_train, self.y_train)
         print("Done in %0.3fs" % (time() - t0))
         
@@ -73,13 +117,30 @@ class FaceRecognitionModel:
         t0 = time()
         y_pred = self.clf.predict(self.x_test)
         print("Done in %0.3fs" % (time() - t0))
+        accuracy = accuracy_score(self.y_test, y_pred)
+        f_score = f1_score(self.y_test, y_pred, average='weighted')
+        # Calculate AUC
+        auc_per_class = []
+
+        for i in range(1,41):
+            # Convert the problem into a binary classification problem for each class
+            binary_true = (self.y_test == i).astype(int)
+            binary_predict = (y_pred == i).astype(int)
+
+            # Calculate AUC for each class
+            auc_class = roc_auc_score(binary_true, binary_predict)
+            auc_per_class.append(auc_class)
+
+        # Calculate the average AUC
+        auc_score = np.mean(auc_per_class)
+        #The overall score
+        recognition_rate = (float(accuracy) +float(f_score) + float(auc_score))/3
         
         print("\nClassification Report:")
-        print(classification_report(self.y_test, y_pred))
-        print('Accuracy:', accuracy_score(self.y_test, y_pred))
-        # Print only overall stats recall and f1 score
-        # print('Recall: ', recall_score(self.y_test, y_pred, average='macro'))
-        # print('F1 score: ', f1_score(self.y_test, y_pred, average='macro'))
+        print(f'Accuracy: {accuracy}\n')
+        print(f'F1_Score: {f_score}\n')
+        print(f'AUC_Score: {auc_score}\n')
+        print(f'Recognition Rate: {recognition_rate}\n')
 
     def plot_eigenfaces(self):
         eigenfaces = self.pca.components_.reshape((self.n_components, 112, 92))
@@ -91,15 +152,16 @@ class FaceRecognitionModel:
             plt.xticks(())
             plt.yticks(())
         plt.show()
-
 if __name__ == '__main__':
     clf = SVC(kernel='rbf', class_weight='balanced')
-    face_model = FaceRecognitionModel(classifier=clf)
+    knn = KNeighborsClassifier(n_neighbors=5, weights = 'uniform', metric = 'euclidean')
+    face_model = FaceRecognitionModel()
     face_model.load_data()
     face_model.split_data()
     face_model.perform_pca()
     face_model.project_on_eigenfaces()
-    # face_model.plot_eigenfaces()
+    #     face_model.plot_eigenfaces()
+    face_model.train_classifier(classifier=knn)
     face_model.print_classifier_info()
-    face_model.train_classifier()
     face_model.evaluate_model()
+    
