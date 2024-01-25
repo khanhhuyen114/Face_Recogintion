@@ -186,3 +186,26 @@ class FaceRecognitionModel:
             plt.xticks(())
             plt.yticks(())
         plt.show()
+if __name__ == '__main__':
+    euc_uni = KNeighborsClassifier(n_neighbors=5, weights = 'uniform', metric = 'euclidean')
+    man_uni = KNeighborsClassifier(n_neighbors=5, weights= 'uniform',metric='manhattan')
+    cosi_uni = KNeighborsClassifier(n_neighbors=5, weights= 'uniform',metric='cosine')
+    euc_dis = KNeighborsClassifier(n_neighbors=5, weights = 'distance', metric = 'euclidean')
+    man_dis = KNeighborsClassifier(n_neighbors=5, weights= 'distance',metric='manhattan')
+    cosi_dis = KNeighborsClassifier(n_neighbors=5, weights= 'distance',metric='cosine')
+    classifier = [euc_uni, man_uni, cosi_uni, euc_dis, man_dis, cosi_dis]
+    random_seed = [42,52,62,72,82]
+    for k in range(20,200,20):
+        for seed in random_seed:
+            face_model = FaceRecognitionModel(n_components= k)
+            face_model.load_data()
+            face_model.split_data(rand_state = seed)
+            face_model.perform_pca()
+            face_model.project_on_eigenfaces()
+            #     face_model.plot_eigenfaces()
+            face_model.mahalabonis()
+            face_model.mahalabonis(weight = "distance")
+            for clf in classifier:
+                face_model.train_classifier(classifier=clf)
+                face_model.print_classifier_info()
+                face_model.evaluate_model()
