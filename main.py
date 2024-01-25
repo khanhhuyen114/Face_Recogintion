@@ -91,10 +91,31 @@ class FaceRecognitionModel:
         pred = np.array([np.argmax(np.bincount(self.y_train[idx])) for idx in five_neighbors_dis])
         print("Done in %0.3fs" % (time() - t0))
         # Evaluate accuracy
-        print("\nClassification Report:")
-        print(classification_report(self.y_test, pred))
-        print('Accuracy:', accuracy_score(self.y_test,pred))
+        accuracy = accuracy_score(self.y_test, pred)
+        f_score = f1_score(self.y_test, pred, average='weighted')
+        # Calculate AUC
+        auc_per_class = []
 
+        for i in range(1,41):
+            # Convert the problem into a binary classification problem for each class
+            binary_true = (self.y_test == i).astype(int)
+            binary_predict = (pred == i).astype(int)
+
+            # Calculate AUC for each class
+            auc_class = roc_auc_score(binary_true, binary_predict)
+            auc_per_class.append(auc_class)
+
+        # Calculate the average AUC
+        auc_score = np.mean(auc_per_class)
+        #The overall score
+        recognition_rate = (float(accuracy) +float(f_score) + float(auc_score))/3
+        
+        print("\nClassification Report:")
+        print(f'Accuracy: {accuracy}\n')
+        print(f'F1_Score: {f_score}\n')
+        print(f'AUC_Score: {auc_score}\n')
+        print(f'Recognition Rate: {recognition_rate}\n')
+        
     def uniform_weight(distance):
         return 1.0
 
