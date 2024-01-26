@@ -124,12 +124,6 @@ class FaceRecognitionModel:
         print(f'Recognition Rate: {recognition_rate}\n')
         print("-"*100)
         
-    def uniform_weight(distance):
-        return 1.0
-
-    def distance_weight(distance):
-        return 1.0 / (distance + 1e-10)  # Adding a small epsilon to avoid division by zero
-  
     def train_classifier(self,classifier):
         print("Fitting the classifier to the training set")
         t0 = time()
