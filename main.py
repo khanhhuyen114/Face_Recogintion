@@ -23,6 +23,8 @@ class FaceRecognitionModel:
         self.cov_matrix = None
         self.inv_cov_matrix = None
         self.seed = None
+        self.img_visual = None
+        self.og_train = None
 
     def load_data(self):
         for i in range(1, 41):
@@ -51,6 +53,7 @@ class FaceRecognitionModel:
 
         self.x_train, self.y_train = np.array(x_train), np.array(y_train)
         self.x_test, self.y_test = np.array(x_test), np.array(y_test)
+        self.og_train = np.array(x_train)
 
     
     def plot_elbow(self):
@@ -123,7 +126,7 @@ class FaceRecognitionModel:
         print(f'AUC_Score: {auc_score}\n')
         print(f'Recognition Rate: {recognition_rate}\n')
         print("-"*100)
-        
+  
     def train_classifier(self,classifier):
         print("Fitting the classifier to the training set")
         t0 = time()
@@ -162,7 +165,7 @@ class FaceRecognitionModel:
         auc_score = np.mean(auc_per_class)
         #The overall score
         recognition_rate = (float(accuracy) +float(f_score) + float(auc_score))/3
-        
+
         print("\nClassification Report:")
         print(f'Accuracy: {accuracy}\n')
         print(f'F1_Score: {f_score}\n')
@@ -180,26 +183,98 @@ class FaceRecognitionModel:
             plt.xticks(())
             plt.yticks(())
         plt.show()
+        
+    def flatten_img(self, image):
+        image = cv2.imread(image, 0)
+        image = image.reshape((112, 92))
+        return image
+        
+    def visualize_closest_image(self, image, knn, neighbors):
+        self.img_visual = image
+        self.img_visual = cv2.imread(self.img_visual, 0)
+        self.img_visual = self.img_visual.flatten()
+        self.img_visual = self.img_visual.reshape(1, -1)
+        self.img_visual = self.pca.transform(self.img_visual)
+        knn.fit(self.x_train, self.y_train)
+        closest_neighbors = knn.kneighbors(self.img_visual, n_neighbors=neighbors, return_distance=True)
+        # Extract indices and distances
+        closest_idx = closest_neighbors[1]
+        distances = closest_neighbors[0]
+
+        eigenface_projection = self.pca.inverse_transform(self.img_visual).reshape((112, 92))
+        # Predict the label of the test image using KNN
+        predicted_label = knn.predict(self.img_visual)
+        print(predicted_label)
+        print("-"*100)
+        
+        # Convert closest_indices to a list of strings
+#         closest_idx = [str(idx) for idx in closest_idx.flatten()]
+        
+        plt.figure(figsize=(15, 4))
+
+        # Plot the test image
+        plt.subplot(1, int(neighbors+1), 1)
+        plt.imshow(self.flatten_img(image), cmap='gray')
+        plt.title('Test Image')
+
+        # Plot the 5 closest neighbors
+        for i in range(neighbors):
+            idx = closest_idx[0][i]
+            neighbor_image = self.og_train[int(idx)].reshape((112, 92))  
+            plt.subplot(1, int(neighbors+1), i + 2)
+            plt.imshow(neighbor_image, cmap='gray')
+#             plt.title(f'Neighbor {i + 1}\nDist: {distances[0][i]:.2f}') 
+            plt.title(f'Neighbor {i + 1}')
+        
+        eigenfaces = self.pca.components_[0:20].reshape((20, 112, 92))
+
+        plt.figure(figsize=(10, 20))
+        for i in range(20):
+            plt.subplot(10, 10, i + 1)
+            plt.imshow(eigenfaces[i], cmap='gray')
+            plt.xticks(())
+            plt.yticks(())
+    
+        # Plot the test image projected onto the PCA space
+        plt.figure(figsize=(15, 4))
+        plt.imshow(eigenface_projection, cmap='gray')
+        plt.title('Eigenface_projection')
+        plt.xticks(())
+        plt.yticks(())
+        
+        
+        plt.show()
+
+        
+
 if __name__ == '__main__':
     euc_uni = KNeighborsClassifier(n_neighbors=5, weights = 'uniform', metric = 'euclidean')
-    man_uni = KNeighborsClassifier(n_neighbors=5, weights= 'uniform',metric='manhattan')
-    cosi_uni = KNeighborsClassifier(n_neighbors=5, weights= 'uniform',metric='cosine')
-    euc_dis = KNeighborsClassifier(n_neighbors=5, weights = 'distance', metric = 'euclidean')
-    man_dis = KNeighborsClassifier(n_neighbors=5, weights= 'distance',metric='manhattan')
-    cosi_dis = KNeighborsClassifier(n_neighbors=5, weights= 'distance',metric='cosine')
-    classifier = [euc_uni, man_uni, cosi_uni, euc_dis, man_dis, cosi_dis]
-    random_seed = [42,52,62,72,82]
-    for k in range(20,200,20):
-        for seed in random_seed:
-            face_model = FaceRecognitionModel(n_components= k)
-            face_model.load_data()
-            face_model.split_data(rand_state = seed)
-            face_model.perform_pca()
-            face_model.project_on_eigenfaces()
-            #     face_model.plot_eigenfaces()
-            face_model.mahalabonis()
-            face_model.mahalabonis(weight = "distance")
-            for clf in classifier:
-                face_model.train_classifier(classifier=clf)
-                face_model.print_classifier_info()
-                face_model.evaluate_model()
+#     man_uni = KNeighborsClassifier(n_neighbors=5, weights= 'uniform',metric='manhattan')
+#     cosi_uni = KNeighborsClassifier(n_neighbors=5, weights= 'uniform',metric='cosine')
+#     euc_dis = KNeighborsClassifier(n_neighbors=5, weights = 'distance', metric = 'euclidean')
+#     man_dis = KNeighborsClassifier(n_neighbors=5, weights= 'distance',metric='manhattan')
+#     cosi_dis = KNeighborsClassifier(n_neighbors=5, weights= 'distance',metric='cosine')
+#     classifier = [euc_uni, man_uni, cosi_uni, euc_dis, man_dis, cosi_dis]
+#     random_seed = [42,52,62,72,82]
+#     for k in range(20,200,20):
+#         for seed in random_seed:
+#             face_model = FaceRecognitionModel(n_components= k)
+#             face_model.load_data()
+#             face_model.split_data(rand_state = seed)
+#             face_model.perform_pca()
+#             face_model.project_on_eigenfaces()
+#             #     face_model.plot_eigenfaces()
+#             face_model.mahalabonis()
+#             face_model.mahalabonis(weight = "distance")
+#             for clf in classifier:
+#                 face_model.train_classifier(classifier=clf)
+#                 face_model.print_classifier_info()
+#                 face_model.evaluate_model()
+    face_model = FaceRecognitionModel(n_components= 50)
+    face_model.load_data()
+    face_model.split_data(rand_state = 42)
+    face_model.perform_pca()
+    face_model.project_on_eigenfaces()
+    face_model.train_classifier(classifier=euc_uni)
+    face_model.print_classifier_info()
+    face_model.evaluate_model()
