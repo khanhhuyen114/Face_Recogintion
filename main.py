@@ -24,6 +24,7 @@ class FaceRecognitionModel:
         self.inv_cov_matrix = None
         self.seed = None
         self.img_visual = None
+        self.reconstructed_img = None
         self.og_train = None
 
     def load_data(self):
@@ -207,11 +208,7 @@ class FaceRecognitionModel:
         print(predicted_label)
         print("-"*100)
         
-        # Convert closest_indices to a list of strings
-#         closest_idx = [str(idx) for idx in closest_idx.flatten()]
-        
         plt.figure(figsize=(15, 4))
-
         # Plot the test image
         plt.subplot(1, int(neighbors+1), 1)
         plt.imshow(self.flatten_img(image), cmap='gray')
@@ -227,7 +224,6 @@ class FaceRecognitionModel:
             plt.title(f'Neighbor {i + 1}')
         
         eigenfaces = self.pca.components_[0:20].reshape((20, 112, 92))
-
         plt.figure(figsize=(10, 20))
         for i in range(20):
             plt.subplot(10, 10, i + 1)
@@ -241,9 +237,31 @@ class FaceRecognitionModel:
         plt.title('Eigenface_projection')
         plt.xticks(())
         plt.yticks(())
-        
-        
+    
         plt.show()
+        
+    def plot_reconstructed_face(self, image, num_k):
+        reconstructed = []
+        self.reconstructed_img = image
+        self.reconstructed_img = cv2.imread(self.reconstructed_img, 0)
+        self.reconstructed_img = self.reconstructed_img.flatten()
+        self.reconstructed_img = self.reconstructed_img.reshape(1, -1)
+        print(self.reconstructed_img.shape)
+        for num in range(20,num_k,20):
+            self.split_data(rand_state = 100)
+            pca = PCA(n_components=num, svd_solver='randomized', whiten=True).fit(self.og_train)
+            self.reconstructed_img_pca = pca.transform(self.reconstructed_img)
+            eigenface_projection = pca.inverse_transform(self.reconstructed_img_pca).reshape((112, 92))
+            reconstructed.append(eigenface_projection)
+        
+        plt.figure(figsize=(10, 20))
+        for i in range(len(range(20,num_k,20))):
+            plt.subplot(10, 10, i + 1)
+            plt.imshow(reconstructed[i], cmap='gray')
+            plt.xticks(())
+            plt.yticks(())
+        
+        
 
         
 
