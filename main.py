@@ -246,7 +246,6 @@ class FaceRecognitionModel:
         self.reconstructed_img = cv2.imread(self.reconstructed_img, 0)
         self.reconstructed_img = self.reconstructed_img.flatten()
         self.reconstructed_img = self.reconstructed_img.reshape(1, -1)
-        print(self.reconstructed_img.shape)
         for num in range(20,num_k,20):
             self.split_data(rand_state = 100)
             pca = PCA(n_components=num, svd_solver='randomized', whiten=True).fit(self.og_train)
