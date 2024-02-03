@@ -29,7 +29,7 @@ class FaceRecognitionModel:
         self.num_label = num_label
 
     def load_data(self):
-        for i in range(1, num_label):
+        for i in range(1, self.num_label):
             for j in range(1, 11):
                 file_path = os.path.join(self.data_path,'s'+str(i),str(j)+'.pgm')
                 img = cv2.imread(file_path, 0)
@@ -43,7 +43,7 @@ class FaceRecognitionModel:
     def split_data(self, rand_state = 42):
         self.seed = rand_state
         x_train, x_test, y_train, y_test = [], [], [], []
-        for i in range(1, num_label):
+        for i in range(1, self.num_label):
             indices = np.where(self.labels == i)[0]
             train_indices, test_indices = train_test_split(indices, test_size=0.2, random_state= rand_state)
 
