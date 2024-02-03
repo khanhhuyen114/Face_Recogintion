@@ -12,7 +12,7 @@ from scipy.spatial.distance import mahalanobis
 from colorama import Fore, Style
 
 class FaceRecognitionModel:
-    def __init__(self, data_path='/kaggle/input/test-images/Images_test', n_components=50):
+    def __init__(self, data_path='/kaggle/input/test-images/Images_test', n_components=50,num_label = 42):
         self.data_path = data_path
         self.n_components = n_components
         self.images = []
@@ -26,9 +26,10 @@ class FaceRecognitionModel:
         self.reconstructed_img = None
         self.og_train = None
         self.og_test = None
+        self.num_label = num_label
 
     def load_data(self):
-        for i in range(1, 42):
+        for i in range(1, num_label):
             for j in range(1, 11):
                 file_path = os.path.join(self.data_path,'s'+str(i),str(j)+'.pgm')
                 img = cv2.imread(file_path, 0)
@@ -42,7 +43,7 @@ class FaceRecognitionModel:
     def split_data(self, rand_state = 42):
         self.seed = rand_state
         x_train, x_test, y_train, y_test = [], [], [], []
-        for i in range(1, 42):
+        for i in range(1, num_label):
             indices = np.where(self.labels == i)[0]
             train_indices, test_indices = train_test_split(indices, test_size=0.2, random_state= rand_state)
 
